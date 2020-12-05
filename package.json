@@ -1,76 +1,36 @@
 {
-  "name": "pokemon-showdown",
-  "preferGlobal": true,
-  "description": "The server for the Pokémon Showdown battle simulator",
-  "version": "0.11.2",
-  "dependencies": {
-    "autolinker": "^1.4.4",
-    "nef": "^1.1.0",
-    "nef-fs": "^1.0.0",
-    "nef-mongo": "^1.0.1",
-    "origindb": "^2.6.1",
-    "sqlite3": "^4.0.2",
-    "request": "^2.83.0",
-    "request-image-size": "^2.1.0",
-    "geoip-lite-country": "1.1.5",
-    "probe-image-size": "^4.0.0",
-    "sockjs": "0.3.18"
-  },
-  "optionalDependencies": {
-    "cloud-env": "^0.2.2",
-    "node-oom-heapdump": "^1.0.10",
-    "node-static": "^0.7.10",
-    "nodemailer": "^4.6.8",
-    "permessage-deflate": "^0.1.6"
-  },
-  "engines": {
-    "node": ">=7.7.0"
+  "name": "cassius",
+  "version": "0.4.0",
+  "description": "A bot for Pokemon Showdown",
+  "author": {
+    "name": "Quinton Lee",
+    "email": "quivistis@gmail.com"
   },
   "scripts": {
-    "start": "node pokemon-showdown",
-    "test": "eslint --cache . && mocha",
-    "tsc": "tsc",
-    "lint": "eslint --cache ."
+    "start": "node app.js",
+    "test": "eslint --cache . && tsc && mocha --exit"
   },
-  "husky": {
-    "hooks": {
-      "pre-push": "eslint --cache ."
-    }
-  },
-  "bin": "./pokemon-showdown",
-  "homepage": "http://pokemonshowdown.com",
+  "main": "app.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Zarel/Pokemon-Showdown.git"
+    "url": "https://github.com/sirDonovan/Cassius.git"
   },
-  "author": {
-    "name": "Guangcong Luo",
-    "email": "guangcongluo@gmail.com",
-    "url": "http://guangcongluo.com"
+  "dependencies": {
+    "websocket": "1.0.28",
+    "pastebin-js": "^1.0.4"
   },
-  "contributors": [
-    {
-      "name": "Cathy J. Fitzpatrick",
-      "email": "cathy@cathyjf.com",
-      "url": "https://cathyjf.com"
-    },
-    {
-      "name": "Bill Meltsner",
-      "email": "bill@meltsner.com",
-      "url": "http://www.meltsner.com"
-    }
-  ],
-  "private": true,
-  "license": "MIT",
   "devDependencies": {
-    "@types/cloud-env": "^0.2.0",
-    "@types/node": "^8.10.36",
-    "@types/node-static": "^0.7.2",
-    "@types/nodemailer": "^4.6.5",
-    "@types/sockjs": "^0.3.31",
-    "eslint": "^5.7.0",
-    "husky": "^1.1.2",
-    "mocha": "^5.2.0",
-    "typescript": "^3.1.3"
-  }
+    "typescript": "2.8.3",
+    "eslint": "6.6.0",
+    "mocha": "5.0.0",
+    "@types/mocha": "2.2.41",
+    "@types/node": "8.5.8",
+    "@types/websocket": "0.0.33"
+  },
+  "engine-strict": true,
+  "engines": {
+    "node": ">=6.0.0"
+  },
+  "private": true,
+  "license": "MIT"
 }

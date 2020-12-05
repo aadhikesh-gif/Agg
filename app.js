@@ -1,198 +1,101 @@
 /**
- * Main file
- * Pokemon Showdown - http://pokemonshowdown.com/
+ * App
+ * Cassius - https://github.com/sirDonovan/Cassius
  *
- * This is the main Pokemon Showdown app, and the file you should be
- * running to start Pokemon Showdown if you're using it normally.
+ * This is the main file that starts Cassius.
  *
- * This file sets up our SockJS server, which handles communication
- * between users and your server, and also sets up globals. You can
- * see details in their corresponding files, but here's an overview:
- *
- * Users - from users.js
- *
- *   Most of the communication with users happens in users.js, we just
- *   forward messages between the sockets.js and users.js.
- *
- * Rooms - from rooms.js
- *
- *   Every chat room and battle is a room, and what they do is done in
- *   rooms.js. There's also a global room which every user is in, and
- *   handles miscellaneous things like welcoming the user.
- *
- * Dex - from sim/dex.js
- *
- *   Handles getting data about Pokemon, items, etc.
- *
- * Ladders - from ladders.js and ladders-remote.js
- *
- *   Handles Elo rating tracking for players.
- *
- * Chat - from chat.js
- *
- *   Handles chat and parses chat commands like /me and /ban
- *
- * Sockets - from sockets.js
- *
- *   Used to abstract out network connections. sockets.js handles
- *   the actual server and connection set-up.
- *
- * @license MIT
+ * @license MIT license
  */
 
-'use strict';
 
-// NOTE: This file intentionally doesn't use too many modern JavaScript
-// features, so that it doesn't crash old versions of Node.js, so we
-// can successfully print the "We require Node.js 8+" message.
+const fs = require('fs');
+global.online_auth = {};
+global.notified = false;
+global.topic = {};
 
-// Check for version and dependencies
+global.Tools = require('./tools.js');
+
 try {
-	// I've gotten enough reports by people who don't use the launch
-	// script that this is worth repeating here
-	eval('{ let a = async () => {}; }');
+	fs.accessSync('./config.js');
 } catch (e) {
-	throw new Error("We require Node.js version 8 or later; you're using " + process.version);
-}
-try {
-	require.resolve('sockjs');
-} catch (e) {
-	throw new Error("Dependencies are unmet; run node pokemon-showdown before launching Pokemon Showdown again.");
+	if (e.code !== 'ENOENT') throw e;
+	console.log("Creating a default config.js file");
+	fs.writeFileSync('./config.js', fs.readFileSync('./config-example.js'));
 }
 
-const FS = require('./lib/fs');
 
-/*********************************************************
- * Load configuration
- *********************************************************/
+// @ts-ignore
+global.Config = require('./config.js');
+if (!Config.username) throw new Error("Please specify a username in config.js");
 
-try {
-	// @ts-ignore This file doesn't exist on the repository, so Travis checks fail if this isn't ignored
-	require.resolve('./config/config');
-} catch (err) {
-	if (err.code !== 'MODULE_NOT_FOUND') throw err; // should never happen
-	throw new Error('config.js does not exist; run node pokemon-showdown to set up the default config file before launching Pokemon Showdown again.');
-}
-// @ts-ignore This file doesn't exist on the repository, so Travis checks fail if this isn't ignored
-global.Config = require('./config/config');
 
-global.Monitor = require('./monitor');
+global.Commands = require('./commands.js');
 
-if (Config.watchconfig) {
-	let configPath = require.resolve('./config/config');
-	FS(configPath).onModify(() => {
-		try {
-			delete require.cache[configPath];
-			global.Config = require('./config/config');
-			if (global.Users) Users.cacheGroupData();
-			Monitor.notice('Reloaded config/config.js');
-		} catch (e) {
-			Monitor.adminlog("Error reloading config/config.js: " + e.stack);
-		}
-	});
-}
+global.Rooms = require('./rooms.js').Rooms;
 
-const http = require("http");
-setInterval(function() {
-    http.get("http://impulse07.glitch.com");
-}, 180000); // every 3 minutes (180000)
+global.Users = require('./users.js').Users;
 
-/*********************************************************
- * Set up most of our globals
- *********************************************************/
-// Custom Globals
+global.MessageParser = require('./message-parser.js').MessageParser;
 
-global.Server = {};
-
-global.Server = require('./Server.js').Server;
-
-global.serverName = Config.serverName;
-
-//replace URL with your MongoDB Url.
-//https://mongodb.com provide free MobgoDB Hosting ( 512MB ).
-//global.Db = require('nef')(require('nef-mongo')('URL'));
-
-// Store data locally ( Disable local storage, If you want to use cloud storage. )
-const nef = require('nef');
-const nefFs = require('nef-mongo');
-global.Db = nef(nefFs('mongodb://AllianceSky-PS:7066091863@princesky-db-shard-00-00-gmww8.mongodb.net:27017,princesky-db-shard-00-01-gmww8.mongodb.net:27017,princesky-db-shard-00-02-gmww8.mongodb.net:27017/test?ssl=true&replicaSet=PrinceSky-Db-shard-0&authSource=admin&retryWrites=true'));
-
-// Sqlite3 Databse for REGIONS.
-global.sqlite3 = require('sqlite3');
-
-// Additional Database  ( Remove this, if you don't want to use additional database )
-global.Ad = require('origindb')('./config/Ad');
-
-// Make Console global for SGgame
-global.Console = require('./console.js');
-
-// Custom Globals End
-
-global.Dex = require('./sim/dex');
-global.toId = Dex.getId;
-
-global.LoginServer = require('./loginserver');
-
-global.Ladders = require('./ladders');
-
-global.Users = require('./users');
-
-global.Punishments = require('./punishments');
-
-global.Chat = require('./chat');
-
-global.Rooms = require('./rooms');
-
-global.Ontime = {};
-
-global.Tells = require('./tells.js');
-
-global.Verifier = require('./verifier');
-Verifier.PM.spawn();
+global.Client = require('./client.js');
 
 global.Tournaments = require('./tournaments');
 
-global.Dnsbl = require('./dnsbl');
-Dnsbl.loadDatacenters();
+global.Games = require('./games.js');
 
-if (Config.crashguard) {
-	// graceful crash - allow current battles to finish before restarting
-	process.on('uncaughtException', err => {
-		Monitor.crashlog(err, 'The main process');
-	});
-	process.on('unhandledRejection', err => {
-		Monitor.crashlog(err, 'A main process Promise');
-	});
+global.Storage = require('./storage.js');
+
+global.Currency = require("./plugins/Currency.js");
+
+Storage.importDatabases();
+Storage.globalDatabase = Storage.getDatabase('global');
+
+let pluginsList;
+let plugins = fs.readdirSync('./plugins');
+for (let i = 0, len = plugins.length; i < len; i++) {
+	let fileName = plugins[i];
+	if (!fileName.endsWith('.js') || fileName === 'example-commands.js' || fileName === 'example-module.js') continue;
+	if (!pluginsList) pluginsList = [];
+	let file = require('./plugins/' + fileName);
+	if (file.name) {
+		// @ts-ignore
+		global[file.name] = file;
+		if (typeof file.onLoad === 'function') file.onLoad();
+	}
+	if (file.commands) Object.assign(Commands, file.commands);
+	pluginsList.push(file);
 }
 
-/*********************************************************
- * Start networking processes to be connected to
- *********************************************************/
+let pluginsList2;
 
-global.Sockets = require('./sockets');
 
-exports.listen = function (port, bindaddress, workerCount) {
-	Sockets.listen(port, bindaddress, workerCount);
-};
+
+global.Plugins = pluginsList;
 
 if (require.main === module) {
-	// Launch the server directly when app.js is the main module. Otherwise,
-	// in the case of app.js being imported as a module (e.g. unit tests),
-	// postpone launching until app.listen() is called.
-	let port;
-	if (process.argv[2]) port = parseInt(process.argv[2]);
-	Sockets.listen(port);
+	Games.loadGames();
+	Client.connect();
 }
 
-/*********************************************************
- * Set up our last global
- *********************************************************/
-
-global.TeamValidatorAsync = require('./team-validator-async');
-TeamValidatorAsync.PM.spawn();
-
-/*********************************************************
- * Start up the REPL server
- *********************************************************/
-
-require('./lib/repl').start('app', cmd => eval(cmd));
+	global.uncacheTree = function(root)
+	{
+		let uncache = [require.resolve(root)];
+		do
+		{
+			let newuncache = [];
+			for (let i = 0; i < uncache.length; ++i)
+			{
+				if (require.cache[uncache[i]])
+				{
+					newuncache.push.apply(newuncache,
+						require.cache[uncache[i]].children.map(function(module)
+						{
+							return module.filename;
+						})
+					);
+					delete require.cache[uncache[i]];
+				}
+			}
+			uncache = newuncache;
+		} while (uncache.length > 0);
+	}

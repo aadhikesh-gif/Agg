@@ -1,258 +1,512 @@
 /**
- * Room games
- * Pokemon Showdown - http://pokemonshowdown.com/
+ * Room Game
+ * Cassius - https://github.com/sirDonovan/Cassius
  *
- * Room games are an abstract representation of an activity that a room
- * can be focused on, such as a battle, tournament, or chat game like
- * Hangman. Rooms are limited to one roomgame at a time.
- *
- * Room games can keep track of designated players. If a user is a player,
- * they will not be allowed to change name until their games are complete.
- *
- * The player system is optional: Some games, like Hangman, don't designate
- * players and just allow any user in the room to play.
+ * This file contains the base player and game classes
  *
  * @license MIT license
  */
 
 'use strict';
 
-// globally Rooms.RoomGamePlayer
-class RoomGamePlayer {
+class Player {
 	/**
 	 * @param {User} user
-	 * @param {RoomGame} game
 	 */
-	constructor(user, game) {
-		// we explicitly don't hold a reference to the user
-		this.userid = user.userid;
+	constructor(user) {
 		this.name = user.name;
-		this.game = game;
-		user.games.add(this.game.id);
-		user.updateSearch();
-	}
-	destroy() {
-		let user = Users.getExact(this.userid);
-		if (user) {
-			user.games.delete(this.game.id);
-			user.updateSearch();
-		}
+		this.id = user.id;
+		this.eliminated = false;
+		/**@type {?string} */
+		this.team = null;
 	}
 
-	toString() {
-		return this.userid;
-	}
 	/**
-	 * @param {string} data
+	 * @param {string} message
 	 */
-	send(data) {
-		let user = Users.getExact(this.userid);
-		if (user) user.send(data);
-	}
-	/**
-	 * @param {string} data
-	 */
-	sendRoom(data) {
-		let user = Users.getExact(this.userid);
-		if (user) user.sendTo(this.game.id, data);
+	say(message) {
+		Users.add(this.name).say(message);
 	}
 }
 
-// globally Rooms.RoomGame
-class RoomGame {
+exports.Player = Player;
+
+/**@augments BaseGame */
+class Game {
 	/**
-	 * @param {ChatRoom | GameRoom} room
+	 * @param {Room} room
 	 */
 	constructor(room) {
-		this.id = room.id;
-		/** @type {ChatRoom | GameRoom} */
 		this.room = room;
-		this.gameid = 'game';
-		this.title = 'Game';
-		this.allowRenames = false;
-		this.players = Object.create(null);
+		this.name = '';
+		this.id = '';
+		this.modeId = '';
+		this.description = '';
+		/**@type {{[k: string]: Player}} */
+		this.players = {};
 		this.playerCount = 0;
-		this.playerCap = 0;
+		/**@type {?number} */
+		this.playerCap = null;
+		/**@type {?number} */
+		this.maxPlayers = null;
+		this.minPlayers = 2;
+		this.round = 0;
+		this.started = false;
 		this.ended = false;
+		this.freeJoin = false;
+		this.canLateJoin = true;
+		/**@type {Map<Player, number>} */
+		this.winners = new Map();
+		/**@type {?Map<Player, number>} */
+		this.points = null;
+		/**@type {?Map<Player, number>} */
+		this.lives = null;
+		/**@type {?Game} */
+		this.parentGame = null;
+		/**@type {?Game} */
+		this.childGame = null;
+		/**@type {?NodeJS.Timer} */
+		this.timeout = null;
+		/**@type {?string} */
+		this.variation = null;
+		/**@type {?{[k: string]: string}} */
+		this.commands = null;
+		/**@type {?boolean | {[k: string]: boolean}} */
+		this.pmCommands = null;
+		/**@type {?Array<string>} */
+		this.answers = null;
+		/**@type {?number} */
+		this.maxPoints = null;
+		this.winnerPointsToBits = 50;
+		this.loserPointsToBits = 10;
+		/**@type {?Map<Player, boolean>} */
+		this.roundGuesses = null;
 	}
 
-	destroy() {
+	/**
+	 * @param {string} message;
+	 */
+	say(message) {
+		this.room.say(message);
+	}
+
+  
+  
+  
+  
+	/**
+	 * @param {string} message;
+	 */
+	sayHtml(message) {
+		this.room.say("/addhtmlbox " + message, true);
+	}
+
+	/**
+	 * @param {User | Player | string} user
+	 * @param {string} message;
+	 */
+	pm(user, message) {
+		if (typeof user === 'string') user = Users.add(user);
+		user.say(message);
+	}
+
+	/**
+	 * @param {User | Player | string} user
+	 * @param {string} message;
+	 */
+	pmHtml(user, message) {
+		this.room.say("/pminfobox " + Tools.toId(user) + ", " + message, true);
+	}
+
+	/**
+	 * @param {string} message
+	 * @param {Function} listener
+	 */
+	on(message, listener) {
+		this.room.on(message, listener);
+	}
+
+	/**
+	 * @param {number} bits
+	 * @param {User | Player} user
+	 */
+	addBits(bits, user) {
+		if (user instanceof Player) user = Users.get(user.name);
+		Storage.addPoints(bits, user, this.room.id);
+    this.say(user.name + " gets " + bits + " bits points");
+	}
+
+	/**
+	 * @param {number} bits
+	 * @param {User | Player} user
+	 */
+	removeBits(bits, user) {
+		if (user instanceof Player) user = Users.get(user.name);
+		Storage.removePoints(bits, user, this.room.id);
+	}
+
+	/**
+	 * @param {User | Player} user
+	 */
+	getBits(user) {
+		if (user instanceof Player) user = Users.get(user.name);
+		return Storage.getPoints(user, this.room.id);
+	}
+
+	/**
+	 * @param {number} [winnerPointsToBits]
+	 * @param {number} [loserPointsToBits]
+	 */
+	convertPointsToBits(winnerPointsToBits, loserPointsToBits) {
+		if (!this.points) throw new Error(this.name + " does not track points.");
+		if (!winnerPointsToBits) winnerPointsToBits = this.winnerPointsToBits;
+		if (!loserPointsToBits) loserPointsToBits = this.loserPointsToBits;
+		this.points.forEach((points, player) => {
+			let bits = 0;
+			if (this.winners.has(player)) {
+				// @ts-ignore
+				bits = winnerPointsToBits * points;
+			} else {
+				// @ts-ignore
+				bits = loserPointsToBits * points;
+			}
+			if (bits) this.addBits(bits, player);
+		});
+	}
+
+	signups() {
+		this.say("Starting a game of " + this.name + "! " + (this.freeJoin ? "(free join)" : "If you would like to play, use the command ``" + Config.commandCharacter + "join``."));
+		if (this.description) this.say("Description: " + this.description);
+		if (this.onSignups) this.onSignups();
+		if (this.freeJoin) this.started = true;
+	}
+
+	start() {
+		if (this.started) return;
+		if (this.playerCount < this.minPlayers) return this.say(this.name + " must have at least " + this.minPlayers + " players.");
+		this.started = true;
+		if (this.onStart) this.onStart();
+	}
+
+	end() {
+		if (this.ended) return;
+		if (this.timeout) clearTimeout(this.timeout);
+		if (this.onEnd) this.onEnd();
+		this.ended = true;
 		this.room.game = null;
-		this.room = /** @type {any} */ (null);
-		for (let i in this.players) {
-			this.players[i].destroy();
+		if (this.parentGame) {
+			this.room.game = this.parentGame;
+			if (this.parentGame.onChildEnd) this.parentGame.onChildEnd(this.winners);
 		}
 	}
 
-	/**
-	 * @param {User} user
-	 * @param {any[]} rest
-	 */
-	addPlayer(user, ...rest) {
-		if (user.userid in this.players) return false;
-		if (this.playerCount >= this.playerCap) return false;
-		let player = this.makePlayer(user, ...rest);
-		if (!player) return false;
-		this.players[user.userid] = player;
-		this.playerCount++;
-		return true;
+  win(player){
+    
+    //this.winners.set(player, points);
+			this.say("Congratulations to **" + player + "** for winning " + this.name + " game!!");
+      //this.addBits(50, user);
+      this.end();
+			return;
+  }
+  
+  
+  winUser(numBits, player, room) {
+    this.say("Congratulations to **" + player.name + "** for winning " + this.name + " game!!");
+		this.say("You were awarded " + numBits + " bits for winning the game! You can use the command ``" + Config.commandCharacter + "bits`` to check your bits.");
+    if(!(lb.isLb('games',room))) lb.createLb('games',room);
+    lb.addPts(numBits,'games',room,user);
+    
+    Storage.exportDatabase(room.id);
+
+    this.end();
+		//Games.addBits(numBits, player.name); // eslint-disable-line no-use-before-define
+    this.ended = true;
+    this.end();
+	}
+  
+  
+	forceEnd() {
+		if (this.ended) return;
+		if (this.timeout) clearTimeout(this.timeout);
+		if (this.parentGame) {
+			this.parentGame.forceEnd();
+			return;
+		}
+		this.say("The game was forcibly ended.");
+		this.ended = true;
+		this.room.game = null;
+	}
+
+	nextRound() {
+		if (this.timeout) clearTimeout(this.timeout);
+		this.round++;
+		if (this.onNextRound) this.onNextRound();
 	}
 
 	/**
 	 * @param {User} user
-	 * @param {any[]} rest
+	 * @return {Player}
 	 */
-	makePlayer(user, ...rest) {
-		return new RoomGamePlayer(user, this);
+	addPlayer(user) {
+		if (user.id in this.players) return this.players[user.id];
+		let player = new Player(user);
+		this.players[user.id] = player;
+		this.playerCount++;
+		return player;
 	}
 
 	/**
 	 * @param {User} user
 	 */
 	removePlayer(user) {
-		if (!this.allowRenames) return false;
-		if (!(user.userid in this.players)) return false;
-		this.players[user.userid].destroy();
-		delete this.players[user.userid];
-		this.playerCount--;
+		if (!(user.id in this.players) || this.players[user.id].eliminated) return;
+		if (this.started) {
+			this.players[user.id].eliminated = true;
+		} else {
+			delete this.players[user.id];
+			this.playerCount--;
+		}
+	}
+  
+  
+  elim(player) {
+		if (!(player in this.players) || this.players[player].eliminated) return;
+		if (this.started) {
+			this.players[player].eliminated = true;
+			delete this.players[player];
+			this.playerCount--;
+		}
+	}
+  
+
+	/**
+	 * @param {User} user
+	 * @param {string} oldName
+	 */
+	renamePlayer(user, oldName) {
+		let oldId = Tools.toId(oldName);
+		if (!(oldId in this.players)) return;
+		let player = this.players[oldId];
+		player.name = user.name;
+		if (player.id === user.id || user.id in this.players) return;
+		player.id = user.id;
+		this.players[user.id] = player;
+		delete this.players[oldId];
+		if (this.onRename) this.onRename(player);
+		if (this.parentGame && this.parentGame.onRename) this.parentGame.onRename(player);
+	}
+
+	/**
+	 * @param {User} user
+	 */
+  
+  pl() {
+		let players = [];
+		for (let userID in this.players) {
+			if (this.players[userID].eliminated) continue;
+			players.push(this.players[userID].name);
+		}
+		this.room.say("**Players (" + this.getRemainingPlayerCount() + ")**: " + players.join(", "));
+	}
+  
+  
+	join(user) {
+    
+		if (user.id in this.players) return;
+		if (this.freeJoin) return user.say(this.name + " does not require you to join.");
+		let lateJoin = false;
+		if (this.started) {
+			if (!this.canLateJoin) {
+				this.pm(user, "Sorry, this game does not support late-joins.");
+				return false;
+			}
+			if (this.maxPlayers && this.getRemainingPlayerCount() >= this.maxPlayers) {
+				this.pm(user, "Sorry, this game is full.");
+				return false;
+			}
+			if (this.lateJoin(user) === false) return false;
+			lateJoin = true;
+		}
+		let player = this.addPlayer(user);
+		if (this.onJoin) this.onJoin(player, lateJoin);
+		if (lateJoin) {
+			user.say('You have late-joined the game of ' + this.name + '!');
+		} else {
+			user.say('You have joined the game of ' + this.name + '!');
+			if ((this.playerCap && this.playerCount === this.playerCap) || (this.maxPlayers && this.playerCount === this.maxPlayers)) this.start();
+		}
+	}
+
+	/**
+	 * @param {User} user
+	 */
+	leave(user) {
+		if (this.parentGame) {
+			this.parentGame.leave(user);
+			return;
+		}
+		if (!(user.id in this.players) || this.players[user.id].eliminated) return;
+		let player = this.players[user.id];
+		this.removePlayer(user);
+		user.say("You have left the game of " + this.name + "!");
+		if (this.onLeave) this.onLeave(player);
+	}
+
+	/**
+	 * @param {User} user
+	 * @return {boolean}
+	 */
+	lateJoin(user) {
+		if (!this.canLateJoin) return false;
+		if (this.round > 1) {
+			user.say("Sorry, the late-join period has ended.");
+			return false;
+		}
+		this.addPlayer(user);
 		return true;
 	}
 
 	/**
-	 * @param {User} user
-	 * @param {string} oldUserid
+	 * @param {{[k: string]: Player}} [players]
+	 * @return {string}
 	 */
-	renamePlayer(user, oldUserid) {
-		if (user.userid === oldUserid) {
-			this.players[user.userid].name = user.name;
-		} else {
-			this.players[user.userid] = this.players[oldUserid];
-			this.players[user.userid].userid = user.userid;
-			this.players[user.userid].name = user.name;
-			delete this.players[oldUserid];
+	getPlayerNames(players) {
+		if (!players) players = this.players;
+		let names = [];
+		for (let i in players) {
+			names.push(players[i].id);
 		}
+		return names.join(",");
 	}
 
-	// Commands:
-
-	// These are all optional to implement:
-
-	// forfeit(user)
-	//   Called when a user uses /forfeit
-	//   Also planned to be used for some force-forfeit situations, such
-	//   as when a user changes their name and .allowRenames === false
-	//   This is strongly recommended to be supported, as the user is
-	//   extremely unlikely to keep playing after this function is
-	//   called.
-
-	// choose(user, text)
-	//   Called when a user uses /choose [text]
-	//   If you have buttons, you are recommended to use this interface
-	//   instead of making your own commands.
-
-	// undo(user, text)
-	//   Called when a user uses /undo [text]
-
-	// joinGame(user, text)
-	//   Called when a user uses /joingame [text]
-
-	// leaveGame(user, text)
-	//   Called when a user uses /leavegame [text]
-
-	// Events:
-
-	// Note:
-	// A user can have multiple connections. For instance, if you have
-	// two tabs open and connected to PS, those tabs represent two
-	// connections, but a single PS user. Each tab can be in separate
-	// rooms.
+	/**
+	 * @param {{[k: string]: Player}} [players]
+	 * @return {string}
+	 */
+	getPoints(players) {
+		if (!this.points) return '';
+		if (!players) players = this.players;
+		let list = [];
+		for (let i in players) {
+			let points = this.points.get(players[i]);
+			list.push(players[i].name + (points ? "(" + points + ")" : ""));
+		}
+		return list.join(", ");
+	}
 
 	/**
-	 * Called when a user joins a room. (i.e. when the user's first
-	 * connection joins)
-	 *
-	 * While connection is passed, it should not usually be used:
-	 * Any handling of connections should happen in onConnect.
-	 * @param {User} user
-	 * @param {Connection} connection
+	 * @param {{[k: string]: Player}} [players]
+	 * @return {string}
 	 */
-	onJoin(user, connection) {}
+	getLives(players) {
+		if (!this.lives) return '';
+		if (!players) players = this.players;
+		let list = [];
+		for (let i in players) {
+			let lives = this.lives.get(players[i]);
+			list.push(players[i].name + "(" + lives + "♥)");
+		}
+		return list.join(", ");
+	}
 
 	/**
-	 * Called when a user is banned from the room this game is taking
-	 * place in.
-	 * @param {User} user
+	 * @return {{[k: string]: Player}}
 	 */
-	removeBannedUser(user) {}
+	getRemainingPlayers() {
+		let remainingPlayers = {};
+		for (let i in this.players) {
+			if (!this.players[i].eliminated) remainingPlayers[i] = this.players[i];
+		}
+		return remainingPlayers;
+	}
 
 	/**
-	 * Called when a user in the game is renamed. `isJoining` is true
-	 * if the user was previously a guest, but now has a username.
-	 * Check `!user.named` for the case where a user previously had a
-	 * username but is now a guest. By default, updates a player's
-	 * name as long as allowRenames is set to true.
-	 * @param {User} user
-	 * @param {string} oldUserid
-	 * @param {boolean} isJoining
-	 * @param {boolean} isForceRenamed
+	 * @return {number}
 	 */
-	onRename(user, oldUserid, isJoining, isForceRenamed) {
-		if (!this.allowRenames || (!user.named && !isForceRenamed)) {
-			if (!(user.userid in this.players)) {
-				user.games.delete(this.id);
-				user.updateSearch();
+	getRemainingPlayerCount() {
+		let count = 0;
+		for (let i in this.players) {
+			if (!this.players[i].eliminated) count++;
+		}
+		return count;
+	}
+
+	/**
+	 * @param {{[k: string]: Player}} [players]
+	 * @return {Array<Player>}
+	 */
+	shufflePlayers(players) {
+		if (!players) players = this.players;
+		let list = [];
+		for (let i in players) {
+			list.push(players[i]);
+		}
+		return Tools.shuffle(list);
+	}
+
+	/**
+	 * @param {string} guess
+	 */
+	checkAnswer(guess) {
+		if (!this.answers) return;
+		for (let i = 0, len = this.answers.length; i < len; i++) {
+			if (Tools.toId(this.answers[i]) === guess) {
+				return true;
 			}
+		}
+		return false;
+	}
+  
+  
+  givepts(uid, pts) {
+    var player = this.players[uid];
+  let points = this.points.get(player) || 0;
+    points = points + pts;
+  this.points.set(player, points);
+		if (points >= this.maxPoints) {
+			this.win(uid);
+		}
+  
+  }
+  
+
+	/**
+	 * @param {string} guess
+	 * @param {Room} room
+	 * @param {User} user
+	 */
+	guess(guess, room, user) {
+		if (!this.answers || !this.answers.length || !this.points || !this.maxPoints || !this.started || (user.id in this.players && this.players[user.id].eliminated)) return;
+		if (!(user.id in this.players)) this.addPlayer(user);
+		let player = this.players[user.id];
+		guess = Tools.toId(guess);
+		if (!guess) return;
+		if (this.filterGuess && this.filterGuess(guess)) return;
+		if (this.roundGuesses) {
+			if (this.roundGuesses.has(player)) return;
+			this.roundGuesses.set(player, true);
+		}
+		if (!this.checkAnswer(guess)) {
+			if (this.onGuess) this.onGuess(guess, player);
 			return;
 		}
-		if (!(oldUserid in this.players)) return;
-		this.renamePlayer(user, oldUserid);
-	}
-
-	/**
-	 * Called when a user leaves the room. (i.e. when the user's last
-	 * connection leaves)
-	 * @param {User} user
-	 */
-	onLeave(user) {}
-
-	/**
-	 * Called each time a connection joins a room (after onJoin if
-	 * applicable). By default, this is also called when connection
-	 * is updated in some way (such as by changing user or renaming).
-	 * If you don't want this behavior, override onUpdateConnection
-	 * and/or onRename.
-	 * @param {User} user
-	 * @param {Connection} connection
-	 */
-	onConnect(user, connection) {}
-
-	/**
-	 * Called for each connection in a room that changes users by
-	 * merging into a different user. By default, runs the onConnect
-	 * handler.
-	 * Player updates and an up-to-date report of what's going on in
-	 * the game should be sent during `onConnect`. You should rarely
-	 * need to handle the other events.
-	 * @param {User} user
-	 * @param {Connection} connection
-	 */
-	onUpdateConnection(user, connection) {
-		this.onConnect(user, connection);
-	}
-
-	/**
-	 * Called for every message a user sends while this game is active.
-	 * Return an error message to prevent the message from being sent, or
-	 * `false` to let it through.
-	 * @param {string} message
-	 * @param {User} user
-	 * @return {string | false}
-	 */
-	onChatMessage(message, user) {
-		return false;
+		if (this.timeout) clearTimeout(this.timeout);
+		let points = this.points.get(player) || 0;
+		if (this.pointsPerAnswer) {
+			points += this.pointsPerAnswer(guess);
+		} else {
+			points += 1;
+		}
+		this.points.set(player, points);
+		if (points >= this.maxPoints) {
+			this.winUser(20, user, room);
+		}
+    if(this.ended !== true){
+		this.say("Correct! " + user.name + " advances to " + points + " point" + (points > 1 ? "s" : "") + ". (Answer" + (this.answers.length > 1 ? "s" : "") + ": __" + this.answers.join(", ") + "__)");
+		this.answers = [];
+		this.timeout = setTimeout(() => this.nextRound(), 5 * 1000);
+    }
 	}
 }
 
-// these exports are traditionally attached to rooms.js
-exports.RoomGame = RoomGame;
-exports.RoomGamePlayer = RoomGamePlayer;
+exports.Game = Game;

@@ -1,7 +1,6 @@
 'use strict';
 
-/**@type {{[k: string]: TypeData}} */
-let BattleTypeChart = {
+exports.BattleTypeChart = {
 	"Bug": {
 		damageTaken: {
 			"Bug": 0,
@@ -23,8 +22,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"atk": 30, "def": 30, "spd": 30},
-		HPdvs: {"atk": 13, "def": 13},
+		HPivs: {"atk":30, "def":30, "spd":30},
+		HPdvs: {"atk":13, "def":13},
 	},
 	"Dark": {
 		damageTaken: {
@@ -71,8 +70,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 2,
 		},
-		HPivs: {"atk": 30},
-		HPdvs: {"def": 14},
+		HPivs: {"atk":30},
+		HPdvs: {"def":14},
 	},
 	"Electric": {
 		damageTaken: {
@@ -96,8 +95,8 @@ let BattleTypeChart = {
 			"Steel": 2,
 			"Water": 0,
 		},
-		HPivs: {"spa": 30},
-		HPdvs: {"atk": 14},
+		HPivs: {"spa":30},
+		HPdvs: {"atk":14},
 	},
 	"Fairy": {
 		damageTaken: {
@@ -142,8 +141,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"def": 30, "spa": 30, "spd": 30, "spe": 30},
-		HPdvs: {"atk": 12, "def": 12},
+		HPivs: {"def":30, "spa":30, "spd":30, "spe":30},
+		HPdvs: {"atk":12, "def":12},
 	},
 	"Fire": {
 		damageTaken: {
@@ -167,8 +166,8 @@ let BattleTypeChart = {
 			"Steel": 2,
 			"Water": 1,
 		},
-		HPivs: {"atk": 30, "spa": 30, "spe": 30},
-		HPdvs: {"atk": 14, "def": 12},
+		HPivs: {"atk":30, "spa":30, "spe":30},
+		HPdvs: {"atk":14, "def":12},
 	},
 	"Flying": {
 		damageTaken: {
@@ -191,8 +190,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"hp": 30, "atk": 30, "def": 30, "spa": 30, "spd": 30},
-		HPdvs: {"atk": 12, "def": 13},
+		HPivs: {"hp":30, "atk":30, "def":30, "spa":30, "spd":30},
+		HPdvs: {"atk":12, "def":13},
 	},
 	"Ghost": {
 		damageTaken: {
@@ -216,8 +215,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"def": 30, "spd": 30},
-		HPdvs: {"atk": 13, "def": 14},
+		HPivs: {"def":30, "spd":30},
+		HPdvs: {"atk":13, "def":14},
 	},
 	"Grass": {
 		damageTaken: {
@@ -241,8 +240,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 2,
 		},
-		HPivs: {"atk": 30, "spa": 30},
-		HPdvs: {"atk": 14, "def": 14},
+		HPivs: {"atk":30, "spa":30},
+		HPdvs: {"atk":14, "def":14},
 	},
 	"Ground": {
 		damageTaken: {
@@ -266,8 +265,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 1,
 		},
-		HPivs: {"spa": 30, "spd": 30},
-		HPdvs: {"atk": 12},
+		HPivs: {"spa":30, "spd":30},
+		HPdvs: {"atk":12},
 	},
 	"Ice": {
 		damageTaken: {
@@ -292,8 +291,8 @@ let BattleTypeChart = {
 			"Steel": 1,
 			"Water": 0,
 		},
-		HPivs: {"atk": 30, "def": 30},
-		HPdvs: {"def": 13},
+		HPivs: {"atk":30, "def":30},
+		HPdvs: {"def":13},
 	},
 	"Normal": {
 		damageTaken: {
@@ -340,8 +339,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"def": 30, "spa": 30, "spd": 30},
-		HPdvs: {"atk": 12, "def": 14},
+		HPivs: {"def":30, "spa":30, "spd":30},
+		HPdvs: {"atk":12, "def":14},
 	},
 	"Psychic": {
 		damageTaken: {
@@ -364,8 +363,8 @@ let BattleTypeChart = {
 			"Steel": 0,
 			"Water": 0,
 		},
-		HPivs: {"atk": 30, "spe": 30},
-		HPdvs: {"def": 12},
+		HPivs: {"atk":30, "spe":30},
+		HPdvs: {"def":12},
 	},
 	"Rock": {
 		damageTaken: {
@@ -389,8 +388,8 @@ let BattleTypeChart = {
 			"Steel": 1,
 			"Water": 1,
 		},
-		HPivs: {"def": 30, "spd": 30, "spe": 30},
-		HPdvs: {"atk": 13, "def": 12},
+		HPivs: {"def":30, "spd":30, "spe":30},
+		HPdvs: {"atk":13, "def":12},
 	},
 	"Steel": {
 		damageTaken: {
@@ -416,8 +415,8 @@ let BattleTypeChart = {
 			"Steel": 2,
 			"Water": 0,
 		},
-		HPivs: {"spd": 30},
-		HPdvs: {"atk": 13},
+		HPivs: {"spd":30},
+		HPdvs: {"atk":13},
 	},
 	"Water": {
 		damageTaken: {
@@ -440,9 +439,7 @@ let BattleTypeChart = {
 			"Steel": 2,
 			"Water": 2,
 		},
-		HPivs: {"atk": 30, "def": 30, "spa": 30},
-		HPdvs: {"atk": 14, "def": 13},
+		HPivs: {"atk":30, "def":30, "spa":30},
+		HPdvs: {"atk":14, "def":13},
 	},
 };
-
-exports.BattleTypeChart = BattleTypeChart;
